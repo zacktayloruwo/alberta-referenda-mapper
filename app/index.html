@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visualizing the 2026 Alberta Referenda</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="site-header">
+    <h1>Visualizing the 2026 Alberta Referenda</h1>
+    <nav class="card-buttons" aria-label="Open a chart">
+      <button type="button" data-card="density-card" aria-pressed="false" aria-controls="density-card">Density</button>
+      <button type="button" data-card="advance-card" aria-pressed="false" aria-controls="advance-card">Advance vs Election Day</button>
+      <button type="button" data-card="correlation-card" aria-pressed="false" aria-controls="correlation-card">Question Correlation</button>
+    </nav>
+  </header>
+  <aside id="panel">
+    <div class="controls">
+      <label for="question">Question</label>
+      <select id="question"></select>
+      <label for="level">Geography</label>
+      <select id="level">
+        <option value="va">Voting areas (Election Day ballots)</option>
+        <option value="ed">Electoral divisions</option>
+      </select>
+    </div>
+    <nav class="zoom-buttons" aria-label="Zoom the map">
+      <button type="button" data-city="Edmonton" disabled>Zoom to Edmonton</button>
+      <button type="button" data-city="Calgary" disabled>Zoom to Calgary</button>
+    </nav>
+
+    <p id="wording"></p>
+
+    <div id="province" class="stat"></div>
+
+    <div id="legend" aria-label="Map legend"></div>
+    <p id="coverage" class="note"></p>
+
+    <details>
+      <summary>All 87 electoral divisions, ranked</summary>
+      <table id="ed-table">
+        <thead><tr><th>Division</th><th id="ed-table-option" class="num"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </details>
+  </aside>
+  <div id="panel-handle" role="separator" aria-orientation="vertical" aria-label="Resize side panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
+  <div id="ballot-filter" role="group" aria-label="Ballots shown on the map" hidden>
+    <button type="button" data-ballots="all" aria-pressed="true">All ballots</button>
+    <button type="button" data-ballots="special" aria-pressed="false">Special ballots</button>
+    <button type="button" data-ballots="advance" aria-pressed="false">Advance ballots</button>
+    <button type="button" data-ballots="electionDay" aria-pressed="false">Election Day ballots</button>
+  </div>
+  <main id="map" aria-label="Map of referendum results"></main>
+  <section id="density-card" class="card" aria-labelledby="density-title" hidden>
+    <header class="card-header">
+      <h2 id="density-title">Vote share by elector density</h2>
+      <button type="button" class="card-close" aria-label="Close chart">×</button>
+    </header>
+    <div class="card-body">
+        <div class="fit-legend" title="Both lines are weighted by electors">
+          <span><i class="fit-dot"></i>One unit</span>
+          <span><i class="fit-line" style="background:#1f1f1d"></i>Linear fit</span>
+          <span><i class="fit-line" style="background:#d6246e"></i>Loess</span>
+        </div>
+        <canvas id="scatter" role="img" aria-label="Scatterplot of vote share against the logarithm of electors per square kilometre"></canvas>
+        <p id="scatter-note" class="note"></p>
+    </div>
+  </section>
+  <section id="advance-card" class="card" aria-labelledby="advance-title" hidden>
+    <header class="card-header">
+      <h2 id="advance-title">Vote share: special, advance and Election Day ballots</h2>
+      <button type="button" class="card-close" aria-label="Close chart">×</button>
+    </header>
+    <div class="card-body">
+      <div id="advance-summary" class="stat stat-4"></div>
+      <p class="note"><strong>Mail-in Ballots</strong>, called special ballots in Elections Alberta's results, are votes cast by mail. Any eligible elector could request one by September 25, 2026 without giving a reason, then return it with a signed declaration and a copy of their ID. Completed ballots had to reach Elections Alberta in Edmonton by 5 p.m. on October 16. <a href="https://www.elections.ab.ca/voters/how-to-vote/voting-by-mail/" target="_blank" rel="noopener">How voting by mail works</a></p>
+      <div class="fit-legend">
+        <span><i class="fit-dot fit-diamond"></i>Special ballots</span>
+        <span><i class="fit-dot" style="background:#d6246e"></i>Advance votes</span>
+        <span><i class="fit-dot fit-dot-hollow"></i>Election Day votes</span>
+      </div>
+      <div id="advance-chart"></div>
+      <p id="advance-note" class="note"></p>
+    </div>
+  </section>
+  <section id="correlation-card" class="card" aria-labelledby="correlation-title" hidden>
+    <header class="card-header">
+      <h2 id="correlation-title">Consistency of support across questions</h2>
+      <button type="button" class="card-close" aria-label="Close chart">×</button>
+    </header>
+    <div class="card-body">
+      <div id="correlation-summary" class="stat"></div>
+      <button type="button" id="consistency-toggle" aria-pressed="false">Colour map by consistency</button>
+      <p class="note">Each cell is the correlation between two questions across <span id="correlation-units"></span>, weighted by electors. Values near 1 mean areas that were high on one question were also high on the other. Q10 is negative because it measures Remain in Canada rather than Yes.</p>
+      <div class="matrix-scroll"><table id="correlation-matrix"></table></div>
+      <p id="correlation-readout" class="note">Hover over a cell to see the two questions.</p>
+      <p id="correlation-note" class="note"></p>
+    </div>
+  </section>
+  <div id="detail" aria-live="polite"><span class="muted">Hover over the map for local results.</span></div>
+  <footer id="site-footer">
+    <p>Source: <a href="https://officialresults.elections.ab.ca/orEDResultsReferendum2026.cfm?EventId=202610" target="_blank" rel="noopener">Elections Alberta official results</a> and voting area boundaries. Shares use valid ballots.</p>
+    <p>Created by Dr. Zack Taylor, Dept. of Political Science, University of Western Ontario.</p>
+  </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
