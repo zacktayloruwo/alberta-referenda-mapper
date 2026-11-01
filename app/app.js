@@ -52,7 +52,7 @@ const scatter = createScatter(el('scatter'), {
   onHover: (i) => hover(state.level, i),
   onClick: (i) => {
     const layer = LEVELS[state.level].layers[i];
-    map.fitBounds(layer.getBounds(), { maxZoom: 14 });
+    fitMap(layer.getBounds(), { maxZoom: 14 });
     hover(state.level, i);
   },
 });
@@ -313,7 +313,7 @@ function renderTable(question, results, ballots) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(row.ed_name)}</td><td class="num">${pct(share)}</td>`;
     tr.addEventListener('click', () => {
-      map.fitBounds(LEVELS.ed.layers[i].getBounds());
+      fitMap(LEVELS.ed.layers[i].getBounds());
       hover('ed', i);
     });
     return tr;
@@ -372,21 +372,62 @@ async function render() {
       state.edHighlight.setLatLngs(LEVELS.ed.layers[i].getLatLngs()).addTo(map);
     },
     onLeave: () => state.edHighlight.remove(),
-    onClick: (i) => map.fitBounds(LEVELS.ed.layers[i].getBounds()),
+    onClick: (i) => fitMap(LEVELS.ed.layers[i].getBounds()),
   });
   el('detail').innerHTML = '<span class="muted">Hover over the map for local results.</span>';
+}
+
+const CARD_MARGIN = 24;
+const MIN_MAP_BESIDE_CARD = 240;
+const SAME_VIEW_PIXELS = 2;
+
+// Width to keep clear on the map's left for an open card, or 0 if there's no room
+// or the card sits below the map on phones.
+function cardClearance() {
+  const card = document.querySelector('.card:not([hidden])');
+  if (!card || window.matchMedia('(max-width: 760px)').matches) return 0;
+  const clearance = card.offsetWidth + CARD_MARGIN;
+  return map.getSize().x - clearance >= MIN_MAP_BESIDE_CARD ? clearance : 0;
+}
+
+function fitMap(bounds, options = {}) {
+  map.fitBounds(bounds, { paddingTopLeft: [cardClearance(), 12], paddingBottomRight: [12, 12], ...options });
+}
+
+// Opening a card fits Alberta beside it, or slides a zoomed-in view over by half
+// the card's width so the same area stays visible.
+function moveMapForCard() {
+  const clearance = cardClearance();
+  if (!clearance || !LEVELS.ed.group) return;
+  const before = { center: map.getCenter(), zoom: map.getZoom() };
+  const province = LEVELS.ed.group.getBounds();
+  if (map.getBounds().contains(province)) fitMap(province, { animate: false });
+  else map.panBy([-clearance / 2, 0], { animate: false });
+  state.cardView = { before, center: map.getCenter(), zoom: map.getZoom() };
+}
+
+// Closing it puts the map back, unless the viewer has since moved it themselves.
+function restoreMapAfterCard() {
+  const view = state.cardView;
+  state.cardView = null;
+  if (!view) return;
+  const offset = map.latLngToContainerPoint(view.center).distanceTo(map.latLngToContainerPoint(map.getCenter()));
+  if (map.getZoom() === view.zoom && offset <= SAME_VIEW_PIXELS) map.setView(view.before.center, view.before.zoom);
 }
 
 function initCards() {
   const buttons = [...document.querySelectorAll('.card-buttons button')];
   const open = (id) => {
     const wasOpen = !el('correlation-card').hidden;
+    const anyWasOpen = buttons.some((button) => !el(button.dataset.card).hidden);
     buttons.forEach((button) => {
       const isOpen = button.dataset.card === id;
       button.setAttribute('aria-pressed', isOpen);
       el(button.dataset.card).hidden = !isOpen;
     });
     if (!id) state.edHighlight?.remove();
+    if (id && !anyWasOpen) moveMapForCard();
+    if (!id && anyWasOpen) restoreMapAfterCard();
     if (id && window.matchMedia('(max-width: 760px)').matches) el(id).scrollIntoView({ block: 'start' });
     const isOpen = id === 'correlation-card';
     if (wasOpen && !isOpen) {
@@ -472,16 +513,6 @@ function initBallotFilter() {
 function setConsistencyMap(on) {
   state.mapMode = on ? 'consistency' : 'share';
   el('consistency-toggle').setAttribute('aria-pressed', on);
-  if (window.matchMedia('(max-width: 760px)').matches) return;
-  // The open card covers the map's left side, so fit Alberta into the space beside it.
-  if (on) {
-    state.viewBeforeConsistency = { center: map.getCenter(), zoom: map.getZoom() };
-    const paddingLeft = el('correlation-card').offsetWidth + 24;
-    map.fitBounds(LEVELS.ed.group.getBounds(), { paddingTopLeft: [paddingLeft, 12], paddingBottomRight: [12, 12] });
-  } else if (state.viewBeforeConsistency) {
-    map.setView(state.viewBeforeConsistency.center, state.viewBeforeConsistency.zoom);
-    state.viewBeforeConsistency = null;
-  }
 }
 
 function initConsistencyToggle() {
@@ -516,7 +547,7 @@ async function main() {
   document.querySelectorAll('.zoom-buttons button').forEach((button) => {
     const layers = LEVELS.ed.layers.filter((_, i) => LEVELS.ed.rows[i].ed_name.startsWith(`${button.dataset.city}-`));
     const bounds = L.featureGroup(layers).getBounds();
-    button.addEventListener('click', () => map.fitBounds(bounds));
+    button.addEventListener('click', () => fitMap(bounds));
     button.disabled = false;
   });
 
