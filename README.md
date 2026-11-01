@@ -4,7 +4,7 @@ An interactive map of poll-by-poll results from Alberta's 10 referendum question
 
 **Live map:** https://zacktayloruwo.github.io/alberta-referenda-mapper/
 
-Results and voting area boundaries are from [Elections Alberta](https://officialresults.elections.ab.ca/orEDResultsReferendum2026.cfm?EventId=202610). The map uses [Leaflet](https://leafletjs.com/), and [hyparquet](https://github.com/hyparam/hyparquet) reads the Parquet data files in the browser.
+Results and voting area boundaries are from [Elections Alberta](https://officialresults.elections.ab.ca/orEDResultsReferendum2026.cfm?EventId=202610). The map uses [Leaflet](https://leafletjs.com/) 1.9.4, and [hyparquet](https://github.com/hyparam/hyparquet) 1.31.5 reads the Parquet data files in the browser. Unmodified copies of both, with their licences, are in `app/vendor/`.
 
 To run it locally:
 

@@ -1,4 +1,4 @@
-import { parquetReadObjects } from 'https://cdn.jsdelivr.net/npm/hyparquet@1.31.5/src/index.js';
+import { parquetReadObjects } from './vendor/hyparquet/src/index.js';
 import { createScatter } from './scatter.js';
 import { renderAdvanceChart } from './advance.js';
 import { questionProfile, renderMatrix } from './correlation.js';
